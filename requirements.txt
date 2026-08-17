@@ -10,7 +10,6 @@ fastembed
 
 # --- Vector / similarity calculations ------------------------
 numpy
-scikit-learn
 
 # --- Web interface -------------------------------------------
 flask
