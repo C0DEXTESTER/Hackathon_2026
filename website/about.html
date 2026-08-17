@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="About ResearchGuard AI — a privacy-first, offline research paper similarity analyzer.">
+  <title>About — ResearchGuard AI</title>
+  <script>
+    (function () {
+      var t = localStorage.getItem("rg_theme");
+      if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="index.html" class="logo" aria-label="ResearchGuard AI home">
+        <span class="logo-icon" aria-hidden="true">🛡️</span>
+        <span class="logo-text">ResearchGuard <strong>AI</strong></span>
+      </a>
+      <nav class="nav-links" id="navMenu" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="results.html">Results</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html" class="active">About</a>
+        <a href="analyze.html" class="btn btn-primary btn-sm">New Analysis</a>
+      </nav>
+      <div class="nav-controls">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark / light theme" title="Toggle theme">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun" aria-hidden="true">☀️</span>
+        </button>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="section">
+    <div class="container">
+      <h1 class="page-title" data-reveal>About ResearchGuard AI</h1>
+      <p class="page-subtitle" data-reveal>A privacy-first similarity checker for research papers — built for educators, reviewers and students.</p>
+
+      <div class="about-grid">
+        <section class="card" data-reveal>
+          <div class="card-icon">🔒</div>
+          <h2>100% Private</h2>
+          <p>Everything runs on <strong>your</strong> computer. Papers are never uploaded to any cloud service, and analysis results stay in your local <code>results/</code> folder.</p>
+        </section>
+
+        <section class="card" data-reveal>
+          <div class="card-icon">🧠</div>
+          <h2>Real AI Inside</h2>
+          <p>Uses a <strong>sentence-transformer</strong> embedding model to understand the <em>meaning</em> of text, not just its words — so paraphrased content is caught too.</p>
+        </section>
+
+        <section class="card" data-reveal>
+          <div class="card-icon">⚡</div>
+          <h2>Fast & Lightweight</h2>
+          <p>Chunked processing keeps memory low and speed high, even for long papers. Progress is reported live so you always know what's happening.</p>
+        </section>
+
+        <section class="card" data-reveal>
+          <div class="card-icon">📊</div>
+          <h2>Transparent Reports</h2>
+          <p>Every score is broken down into semantic vs lexical similarity, matched side-by-side with page numbers — nothing is a black box.</p>
+        </section>
+      </div>
+
+      <section class="card" data-reveal>
+        <h2>Technology Stack</h2>
+        <ul class="tech-list">
+          <li><strong>Backend:</strong> Python, Flask, PyMuPDF, scikit-learn, sentence-transformers</li>
+          <li><strong>Frontend:</strong> Vanilla HTML, CSS and JavaScript — no frameworks, no build step, no tracking</li>
+          <li><strong>Storage:</strong> Local filesystem only (uploads/ and results/ folders)</li>
+        </ul>
+      </section>
+
+      <section class="disclaimer" data-reveal>
+        <strong>Ethical note:</strong> this tool <em>assists</em> academic integrity review. Similarity scores are not proof of misconduct — always apply human judgement.
+      </section>
+
+      <div class="center">
+        <a href="analyze.html" class="btn btn-primary btn-lg">Try It Now</a>
+        <a href="how-it-works.html" class="btn btn-outline btn-lg">How It Works</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="logo footer-logo"><span aria-hidden="true">🛡️</span> ResearchGuard <strong>AI</strong></div>
+        <p>AI-assisted research paper similarity analysis.</p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+      </nav>
+    </div>
+    <div class="container footer-bottom">
+      <p>Similarity analysis is an assistive tool and should not be treated as definitive proof of plagiarism.</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

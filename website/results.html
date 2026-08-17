@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Interactive similarity analysis report with risk levels and side-by-side text comparison.">
+  <title>Results — ResearchGuard AI</title>
+  <script>
+    (function () {
+      var t = localStorage.getItem("rg_theme");
+      if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="index.html" class="logo" aria-label="ResearchGuard AI home">
+        <span class="logo-icon" aria-hidden="true">🛡️</span>
+        <span class="logo-text">ResearchGuard <strong>AI</strong></span>
+      </a>
+      <nav class="nav-links" id="navMenu" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="results.html" class="active">Results</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+        <a href="analyze.html" class="btn btn-primary btn-sm">New Analysis</a>
+      </nav>
+      <div class="nav-controls">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark / light theme" title="Toggle theme">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun" aria-hidden="true">☀️</span>
+        </button>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="section">
+    <div class="container">
+      <h1 class="page-title" data-reveal>Similarity Analysis Report</h1>
+      <p class="page-subtitle" data-reveal>AI-powered comparison of student and reference research papers.</p>
+      <p class="report-meta" id="reportMeta"></p>
+
+      <!-- LOADING STATE -->
+      <div id="resultsLoading" class="loading-box">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Loading analysis results…</p>
+      </div>
+
+      <!-- NO RESULTS STATE -->
+      <div id="resultsEmpty" class="empty-box" hidden>
+        <p>No analysis results available yet.</p>
+        <a href="analyze.html" class="btn btn-primary">Run Your First Analysis</a>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="resultsContent" hidden>
+        <!-- REPORT TOOLBAR: export / print -->
+        <div class="match-toolbar no-print">
+          <div class="filter-tabs" role="group" aria-label="Export options"></div>
+          <div class="center" style="display:flex; gap:0.7rem; flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" id="exportJsonBtn" title="Download this report as JSON">⬇ Export JSON</button>
+            <button class="btn btn-ghost btn-sm" id="printBtn" title="Print or save as PDF">🖨 Print Report</button>
+          </div>
+        </div>
+
+        <!-- SUMMARY CARDS -->
+        <section class="summary-grid" aria-label="Summary">
+          <article class="summary-card overall">
+            <div class="donut-chart" id="overallDonut" role="img" aria-label="Overall similarity">
+              <div class="donut-hole">
+                <span class="donut-value" id="overallValue">0%</span>
+                <span class="donut-label">Overall Similarity</span>
+              </div>
+            </div>
+            <span class="risk-chip" id="overallClass">—</span>
+          </article>
+
+          <article class="summary-card">
+            <div class="summary-icon icon-high" aria-hidden="true">🚩</div>
+            <span class="summary-value" id="highCount">0</span>
+            <span class="summary-label">High Similarity Matches</span>
+            <span class="summary-sub">Review recommended</span>
+          </article>
+
+          <article class="summary-card">
+            <div class="summary-icon icon-medium" aria-hidden="true">⚠️</div>
+            <span class="summary-value" id="mediumCount">0</span>
+            <span class="summary-label">Medium Similarity Matches</span>
+            <span class="summary-sub">Further review suggested</span>
+          </article>
+
+          <article class="summary-card">
+            <div class="summary-icon icon-low" aria-hidden="true">✅</div>
+            <span class="summary-value" id="lowCount">0</span>
+            <span class="summary-label">Low Similarity Matches</span>
+            <span class="summary-sub">Little overlap detected</span>
+          </article>
+        </section>
+
+        <!-- BREAKDOWN -->
+        <section class="card breakdown-card" aria-label="Similarity breakdown" data-reveal>
+          <h2>Similarity Breakdown</h2>
+          <div class="breakdown-bars">
+            <div class="bar-row">
+              <div class="bar-head">
+                <span class="bar-name">Semantic Similarity</span>
+                <span class="bar-value" id="semanticValue">0%</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill semantic" id="semanticBar"></div></div>
+              <p class="bar-desc">Measures similarity in meaning — catches paraphrasing.</p>
+            </div>
+            <div class="bar-row">
+              <div class="bar-head">
+                <span class="bar-name">Lexical Similarity</span>
+                <span class="bar-value" id="lexicalValue">0%</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill lexical" id="lexicalBar"></div></div>
+              <p class="bar-desc">Measures similarity in actual words and phrases — catches copy-paste.</p>
+            </div>
+            <div class="bar-row">
+              <div class="bar-head">
+                <span class="bar-name">Combined Similarity</span>
+                <span class="bar-value" id="combinedValue">0%</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill combined" id="combinedBar"></div></div>
+              <p class="bar-desc">Combines similarity signals into the final match score.</p>
+            </div>
+          </div>
+          <p class="breakdown-note" id="breakdownNote"></p>
+        </section>
+
+        <!-- DISTRIBUTION HISTOGRAM (canvas) -->
+        <section class="card chart-card" aria-label="Match distribution" data-reveal>
+          <h2>Match Distribution</h2>
+          <p class="chart-sub">How many matches fall in each similarity range.</p>
+          <div class="chart-wrap">
+            <canvas id="distributionChart" role="img" aria-label="Histogram of match similarity ranges"></canvas>
+          </div>
+          <div class="chart-legend">
+            <span><span class="legend-dot" style="background:#ef4444;"></span>High (75–100%)</span>
+            <span><span class="legend-dot" style="background:#f59e0b;"></span>Medium (50–75%)</span>
+            <span><span class="legend-dot" style="background:#22c55e;"></span>Low (0–50%)</span>
+          </div>
+        </section>
+
+        <!-- TOP MATCHES with filter + sort -->
+        <section aria-label="Top similar content">
+          <div class="section-head">
+            <h2>Top Similar Content</h2>
+            <span class="chip" id="matchCountChip"></span>
+          </div>
+
+          <div class="match-toolbar">
+            <div class="filter-tabs" id="filterTabs" role="group" aria-label="Filter matches by risk">
+              <button class="filter-tab active" data-filter="ALL">All</button>
+              <button class="filter-tab" data-filter="HIGH">🚩 High</button>
+              <button class="filter-tab" data-filter="MEDIUM">⚠️ Medium</button>
+              <button class="filter-tab" data-filter="LOW">✅ Low</button>
+            </div>
+            <select class="sort-select" id="sortSelect" aria-label="Sort matches">
+              <option value="combined-desc">Sort: Combined ↓ (highest first)</option>
+              <option value="combined-asc">Sort: Combined ↑ (lowest first)</option>
+              <option value="semantic-desc">Sort: Semantic ↓</option>
+              <option value="lexical-desc">Sort: Lexical ↓</option>
+              <option value="page-asc">Sort: Student page ↑</option>
+            </select>
+          </div>
+
+          <div id="matchList"></div>
+          <div id="noMatchesMessage" class="empty-box" hidden>
+            <p>No matches in this category. 🎉</p>
+          </div>
+        </section>
+
+        <!-- ACTIONS -->
+        <div class="center results-actions">
+          <a href="analyze.html" class="btn btn-primary btn-lg">Start New Analysis</a>
+          <a href="history.html" class="btn btn-outline btn-lg">View History</a>
+        </div>
+
+        <p class="report-disclaimer">⚠️ Similarity scores assist academic review — they do not automatically prove plagiarism. Human review is always required.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- DETAIL MODAL -->
+  <div class="modal-overlay" id="matchModal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <h2 id="modalTitle">Match Details</h2>
+        <button class="modal-close" id="modalClose" aria-label="Close details">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-scores" id="modalScores"></div>
+        <div class="compare-grid">
+          <div class="compare-col student">
+            <h3>STUDENT PAPER <span class="page-badge" id="modalStudentPage"></span></h3>
+            <p class="compare-text" id="modalStudentText"></p>
+          </div>
+          <div class="compare-vs" aria-hidden="true">vs</div>
+          <div class="compare-col reference">
+            <h3>REFERENCE PAPER <span class="page-badge" id="modalReferencePage"></span></h3>
+            <p class="compare-text" id="modalReferenceText"></p>
+          </div>
+        </div>
+        <div class="modal-copy-row">
+          <button class="btn btn-outline btn-sm" id="copyMatchBtn">📋 Copy matched texts</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="logo footer-logo"><span aria-hidden="true">🛡️</span> ResearchGuard <strong>AI</strong></div>
+        <p>AI-assisted research paper similarity analysis.</p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+      </nav>
+    </div>
+    <div class="container footer-bottom">
+      <p>Similarity analysis is an assistive tool and should not be treated as definitive proof of plagiarism.</p>
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/results.js"></script>
+</body>
+</html>

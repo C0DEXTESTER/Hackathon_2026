@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Upload two research papers and run the AI similarity analysis.">
+  <title>Analyze — ResearchGuard AI</title>
+  <script>
+    (function () {
+      var t = localStorage.getItem("rg_theme");
+      if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body class="page-analyze">
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="index.html" class="logo" aria-label="ResearchGuard AI home">
+        <span class="logo-icon" aria-hidden="true">🛡️</span>
+        <span class="logo-text">ResearchGuard <strong>AI</strong></span>
+      </a>
+      <nav class="nav-links" id="navMenu" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html" class="active">Analyze</a>
+        <a href="results.html">Results</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+        <a href="analyze.html" class="btn btn-primary btn-sm">New Analysis</a>
+      </nav>
+      <div class="nav-controls">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark / light theme" title="Toggle theme">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun" aria-hidden="true">☀️</span>
+        </button>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="section">
+    <div class="container">
+      <h1 class="page-title" data-reveal>Analyze Research Papers</h1>
+      <p class="page-subtitle" data-reveal>Upload the reference paper and the student paper, then start the AI analysis.</p>
+
+      <!-- UPLOAD SECTION -->
+      <section id="uploadSection" aria-label="Upload research papers" data-reveal>
+        <div class="upload-grid">
+          <!-- REFERENCE -->
+          <div class="upload-card" id="referenceCard">
+            <div class="upload-inner" id="referenceDrop" role="button" tabindex="0"
+                 aria-label="Upload reference paper PDF. Press Enter to browse.">
+              <div class="upload-icon" aria-hidden="true">📄</div>
+              <h2>REFERENCE PAPER</h2>
+              <p class="upload-hint">Drag & drop or browse</p>
+              <p class="upload-sub">The original / source paper (PDF)</p>
+              <label class="btn btn-outline btn-file">
+                Browse File
+                <input type="file" id="referenceInput" accept="application/pdf,.pdf" hidden>
+              </label>
+              <p class="upload-error" id="referenceError" role="alert" hidden></p>
+            </div>
+            <!-- selected file view -->
+            <div class="file-info" id="referenceInfo" hidden>
+              <div class="file-icon" aria-hidden="true">📄</div>
+              <div class="file-details">
+                <span class="file-name" id="referenceName">reference.pdf</span>
+                <span class="file-size" id="referenceSize">0 KB</span>
+                <span class="file-status" id="referenceStatus">Ready for analysis</span>
+              </div>
+              <div class="file-actions">
+                <button class="btn btn-outline btn-sm" id="referenceChange" type="button">Change</button>
+                <button class="btn btn-danger btn-sm" id="referenceRemove" type="button" aria-label="Remove reference file">Remove</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- STUDENT -->
+          <div class="upload-card" id="studentCard">
+            <div class="upload-inner" id="studentDrop" role="button" tabindex="0"
+                 aria-label="Upload student paper PDF. Press Enter to browse.">
+              <div class="upload-icon" aria-hidden="true">📝</div>
+              <h2>STUDENT PAPER</h2>
+              <p class="upload-hint">Drag & drop or browse</p>
+              <p class="upload-sub">The submission to check (PDF)</p>
+              <label class="btn btn-outline btn-file">
+                Browse File
+                <input type="file" id="studentInput" accept="application/pdf,.pdf" hidden>
+              </label>
+              <p class="upload-error" id="studentError" role="alert" hidden></p>
+            </div>
+            <div class="file-info" id="studentInfo" hidden>
+              <div class="file-icon" aria-hidden="true">📝</div>
+              <div class="file-details">
+                <span class="file-name" id="studentName">student.pdf</span>
+                <span class="file-size" id="studentSize">0 KB</span>
+                <span class="file-status" id="studentStatus">Ready for analysis</span>
+              </div>
+              <div class="file-actions">
+                <button class="btn btn-outline btn-sm" id="studentChange" type="button">Change</button>
+                <button class="btn btn-danger btn-sm" id="studentRemove" type="button" aria-label="Remove student file">Remove</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="center analyze-actions">
+          <button class="btn btn-primary btn-lg" id="startAnalysis" disabled>Start AI Analysis</button>
+        </div>
+        <p class="form-note" id="analyzeNote">Upload both PDFs to enable analysis. Files are processed locally on your computer.</p>
+      </section>
+
+      <!-- PROCESSING SCREEN -->
+      <section id="processingSection" aria-label="Analysis in progress" hidden>
+        <div class="processing-wrap">
+          <h2 class="processing-title">Analyzing Research Papers…</h2>
+          <p class="processing-sub" id="processingStatus">Starting…</p>
+
+          <div class="progress-ring-box" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressRingBox" aria-label="Analysis progress">
+            <svg class="progress-ring" viewBox="0 0 180 180" aria-hidden="true">
+              <defs>
+                <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#6366f1" />
+                  <stop offset="100%" stop-color="#0ea5e9" />
+                </linearGradient>
+              </defs>
+              <circle class="ring-bg" cx="90" cy="90" r="80"></circle>
+              <circle class="ring-fill" id="ringFill" cx="90" cy="90" r="80"></circle>
+            </svg>
+            <div class="ring-center">
+              <span class="ring-percent" id="ringPercent">0%</span>
+              <span class="ring-eta" id="ringEta">elapsed 0s</span>
+            </div>
+          </div>
+
+          <div class="progress-track" aria-hidden="true">
+            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+          </div>
+          <p class="progress-percent" id="progressPercent">0%</p>
+
+          <ol class="step-list" id="stepList">
+            <li data-step="uploading_papers">Uploading papers</li>
+            <li data-step="extracting_reference_text">Extracting reference paper text</li>
+            <li data-step="extracting_student_text">Extracting student paper text</li>
+            <li data-step="creating_text_chunks">Creating text chunks</li>
+            <li data-step="generating_embeddings">Generating AI embeddings</li>
+            <li data-step="comparing_content">Calculating similarity</li>
+            <li data-step="generating_report">Generating report</li>
+          </ol>
+
+          <p class="processing-error" id="processingError" role="alert" hidden></p>
+          <div class="center" id="errorActions" hidden>
+            <a href="analyze.html" class="btn btn-outline">Try Again</a>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="logo footer-logo"><span aria-hidden="true">🛡️</span> ResearchGuard <strong>AI</strong></div>
+        <p>AI-assisted research paper similarity analysis.</p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+      </nav>
+    </div>
+    <div class="container footer-bottom">
+      <p>Similarity analysis is an assistive tool and should not be treated as definitive proof of plagiarism.</p>
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/analyze.js"></script>
+</body>
+</html>

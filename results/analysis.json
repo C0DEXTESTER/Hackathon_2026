@@ -1,0 +1,217 @@
+{
+  "reference_paper": "C:\\Users\\Rishikesh Priyadrshi\\OneDrive\\Desktop\\duplicate-content-detector\\uploads\\20260817_162452_f11b43_reference.pdf",
+  "student_paper": "C:\\Users\\Rishikesh Priyadrshi\\OneDrive\\Desktop\\duplicate-content-detector\\uploads\\20260817_162452_f11b43_student.pdf",
+  "reference_chunk_count": 8,
+  "student_chunk_count": 8,
+  "overall_similarity": 1.0,
+  "semantic_similarity": 1.0,
+  "lexical_similarity": 1.0,
+  "combined_similarity": 1.0,
+  "high_similarity_matches": 8,
+  "medium_similarity_matches": 0,
+  "low_similarity_matches": 0,
+  "weights": {
+    "semantic_weight": 0.7,
+    "lexical_weight": 0.3
+  },
+  "thresholds": {
+    "low_below": 0.5,
+    "high_above": 0.75
+  },
+  "top_matches": [
+    {
+      "student_chunk_id": 1,
+      "reference_chunk_id": 1,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "Project: AI-Based Academic Content Similarity Detector Problem Statement: Scan student research submissions against a sample academic-paper dataset using free, open-source similarity/embedding models to flag duplicates.",
+      "reference_text": "Project: AI-Based Academic Content Similarity Detector Problem Statement: Scan student research submissions against a sample academic-paper dataset using free, open-source similarity/embedding models to flag duplicates.",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 2,
+      "reference_chunk_id": 2,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "Day 1 has been highly productive, and we have successfully moved from concept to a functional prototype. Our core achievements include:",
+      "reference_text": "Day 1 has been highly productive, and we have successfully moved from concept to a functional prototype. Our core achievements include:",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 3,
+      "reference_chunk_id": 3,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Two Working Models Developed: We have successfully built and initialized two distinct AI models utilizing open-source similarity and embedding techniques to scan and compare academic texts. ●​ Prototype Website Live: We have deployed a functional front-end prototype. The website serves as the user interface where research papers can be uploaded or pasted for similarity scanning against our sample dataset. ●​ Core Architecture Established: We have laid the groundwork for the data pipeline, ensuring that the text input from the website can be properly processed by our backend models. ●​ Find Errors and Bugs: During debugging we find some bugs and we are hoping to fix this before submission.",
+      "reference_text": "●​ Two Working Models Developed: We have successfully built and initialized two distinct AI models utilizing open-source similarity and embedding techniques to scan and compare academic texts. ●​ Prototype Website Live: We have deployed a functional front-end prototype. The website serves as the user interface where research papers can be uploaded or pasted for similarity scanning against our sample dataset. ●​ Core Architecture Established: We have laid the groundwork for the data pipeline, ensuring that the text input from the website can be properly processed by our backend models. ●​ Find Errors and Bugs: During debugging we find some bugs and we are hoping to fix this before submission.",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 4,
+      "reference_chunk_id": 4,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Prototype Live: Developed and demostrated the initial prototype website for capturing student research submissions. ●​ Model Generation: Successfully built and initialized our fully functional open-source similarity and embedding models. ●​ Workflow Established: Aligned our interdisciplinary team, dividing core web infrastructure tasks to the CS members and high-dimensional vector/thresholding tasks to the Math members.",
+      "reference_text": "●​ Prototype Live: Developed and demostrated the initial prototype website for capturing student research submissions. ●​ Model Generation: Successfully built and initialized our fully functional open-source similarity and embedding models. ●​ Workflow Established: Aligned our interdisciplinary team, dividing core web infrastructure tasks to the CS members and high-dimensional vector/thresholding tasks to the Math members.",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 5,
+      "reference_chunk_id": 5,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "Hackathon Day 1 Progress Report Submitted By: Team Composition: 4 Members (2 from Computer Science, 2 from Mathematics) 1. Overall Team Progress Overview Team Leader Update:- (Krishna Sharma)",
+      "reference_text": "Hackathon Day 1 Progress Report Submitted By: Team Composition: 4 Members (2 from Computer Science, 2 from Mathematics) 1. Overall Team Progress Overview Team Leader Update:- (Krishna Sharma)",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 6,
+      "reference_chunk_id": 6,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Prototype Live: Help in developing the prototype website for research paper detection by doing backend work together. ●​ Another prototype model: I have also developed an 2nd prototype model for Research paper analysis in Window powershell. ●​ Testing: Help in testing the website and find error and bugs.",
+      "reference_text": "●​ Prototype Live: Help in developing the prototype website for research paper detection by doing backend work together. ●​ Another prototype model: I have also developed an 2nd prototype model for Research paper analysis in Window powershell. ●​ Testing: Help in testing the website and find error and bugs.",
+      "student_page": 2,
+      "reference_page": 2
+    },
+    {
+      "student_chunk_id": 7,
+      "reference_chunk_id": 7,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Data Collection: They help in collecting data for analysis and debugging. ●​ Research Paper Creation: Both of them help us create multiple different type of research paper for analysis.",
+      "reference_text": "●​ Data Collection: They help in collecting data for analysis and debugging. ●​ Research Paper Creation: Both of them help us create multiple different type of research paper for analysis.",
+      "student_page": 2,
+      "reference_page": 2
+    },
+    {
+      "student_chunk_id": 8,
+      "reference_chunk_id": 7,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Data Collection: They help in collecting data for analysis and debugging. ●​ Research Paper Creation: Both of them help us create multiple different type of research paper for analysis.",
+      "reference_text": "●​ Data Collection: They help in collecting data for analysis and debugging. ●​ Research Paper Creation: Both of them help us create multiple different type of research paper for analysis.",
+      "student_page": 2,
+      "reference_page": 2
+    }
+  ],
+  "all_matches": [
+    {
+      "student_chunk_id": 1,
+      "reference_chunk_id": 1,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "Project: AI-Based Academic Content Similarity Detector Problem Statement: Scan student research submissions against a sample academic-paper dataset using free, open-source similarity/embedding models to flag duplicates.",
+      "reference_text": "Project: AI-Based Academic Content Similarity Detector Problem Statement: Scan student research submissions against a sample academic-paper dataset using free, open-source similarity/embedding models to flag duplicates.",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 2,
+      "reference_chunk_id": 2,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "Day 1 has been highly productive, and we have successfully moved from concept to a functional prototype. Our core achievements include:",
+      "reference_text": "Day 1 has been highly productive, and we have successfully moved from concept to a functional prototype. Our core achievements include:",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 3,
+      "reference_chunk_id": 3,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Two Working Models Developed: We have successfully built and initialized two distinct AI models utilizing open-source similarity and embedding techniques to scan and compare academic texts. ●​ Prototype Website Live: We have deployed a functional front-end prototype. The website serves as the user interface where research papers can be uploaded or pasted for similarity scanning against our sample dataset. ●​ Core Architecture Established: We have laid the groundwork for the data pipeline, ensuring that the text input from the website can be properly processed by our backend models. ●​ Find Errors and Bugs: During debugging we find some bugs and we are hoping to fix this before submission.",
+      "reference_text": "●​ Two Working Models Developed: We have successfully built and initialized two distinct AI models utilizing open-source similarity and embedding techniques to scan and compare academic texts. ●​ Prototype Website Live: We have deployed a functional front-end prototype. The website serves as the user interface where research papers can be uploaded or pasted for similarity scanning against our sample dataset. ●​ Core Architecture Established: We have laid the groundwork for the data pipeline, ensuring that the text input from the website can be properly processed by our backend models. ●​ Find Errors and Bugs: During debugging we find some bugs and we are hoping to fix this before submission.",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 4,
+      "reference_chunk_id": 4,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Prototype Live: Developed and demostrated the initial prototype website for capturing student research submissions. ●​ Model Generation: Successfully built and initialized our fully functional open-source similarity and embedding models. ●​ Workflow Established: Aligned our interdisciplinary team, dividing core web infrastructure tasks to the CS members and high-dimensional vector/thresholding tasks to the Math members.",
+      "reference_text": "●​ Prototype Live: Developed and demostrated the initial prototype website for capturing student research submissions. ●​ Model Generation: Successfully built and initialized our fully functional open-source similarity and embedding models. ●​ Workflow Established: Aligned our interdisciplinary team, dividing core web infrastructure tasks to the CS members and high-dimensional vector/thresholding tasks to the Math members.",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 5,
+      "reference_chunk_id": 5,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "Hackathon Day 1 Progress Report Submitted By: Team Composition: 4 Members (2 from Computer Science, 2 from Mathematics) 1. Overall Team Progress Overview Team Leader Update:- (Krishna Sharma)",
+      "reference_text": "Hackathon Day 1 Progress Report Submitted By: Team Composition: 4 Members (2 from Computer Science, 2 from Mathematics) 1. Overall Team Progress Overview Team Leader Update:- (Krishna Sharma)",
+      "student_page": 1,
+      "reference_page": 1
+    },
+    {
+      "student_chunk_id": 6,
+      "reference_chunk_id": 6,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Prototype Live: Help in developing the prototype website for research paper detection by doing backend work together. ●​ Another prototype model: I have also developed an 2nd prototype model for Research paper analysis in Window powershell. ●​ Testing: Help in testing the website and find error and bugs.",
+      "reference_text": "●​ Prototype Live: Help in developing the prototype website for research paper detection by doing backend work together. ●​ Another prototype model: I have also developed an 2nd prototype model for Research paper analysis in Window powershell. ●​ Testing: Help in testing the website and find error and bugs.",
+      "student_page": 2,
+      "reference_page": 2
+    },
+    {
+      "student_chunk_id": 7,
+      "reference_chunk_id": 7,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Data Collection: They help in collecting data for analysis and debugging. ●​ Research Paper Creation: Both of them help us create multiple different type of research paper for analysis.",
+      "reference_text": "●​ Data Collection: They help in collecting data for analysis and debugging. ●​ Research Paper Creation: Both of them help us create multiple different type of research paper for analysis.",
+      "student_page": 2,
+      "reference_page": 2
+    },
+    {
+      "student_chunk_id": 8,
+      "reference_chunk_id": 7,
+      "semantic_similarity": 1.0,
+      "lexical_similarity": 1.0,
+      "combined_similarity": 1.0,
+      "risk": "HIGH",
+      "student_text": "●​ Data Collection: They help in collecting data for analysis and debugging. ●​ Research Paper Creation: Both of them help us create multiple different type of research paper for analysis.",
+      "reference_text": "●​ Data Collection: They help in collecting data for analysis and debugging. ●​ Research Paper Creation: Both of them help us create multiple different type of research paper for analysis.",
+      "student_page": 2,
+      "reference_page": 2
+    }
+  ]
+}

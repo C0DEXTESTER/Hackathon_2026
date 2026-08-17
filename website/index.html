@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ResearchGuard AI — free, local, AI-powered research paper similarity analysis.">
+  <title>ResearchGuard AI — Research Paper Similarity Detector</title>
+  <script>
+    // Apply saved theme BEFORE CSS paints to avoid a flash of the wrong theme
+    (function () {
+      var t = localStorage.getItem("rg_theme");
+      if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="index.html" class="logo" aria-label="ResearchGuard AI home">
+        <span class="logo-icon" aria-hidden="true">🛡️</span>
+        <span class="logo-text">ResearchGuard <strong>AI</strong></span>
+      </a>
+      <nav class="nav-links" id="navMenu" aria-label="Main navigation">
+        <a href="index.html" class="active">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="results.html">Results</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+        <a href="analyze.html" class="btn btn-primary btn-sm">New Analysis</a>
+      </nav>
+      <div class="nav-controls">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark / light theme" title="Toggle theme">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun" aria-hidden="true">☀️</span>
+        </button>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO with particle constellation canvas -->
+  <section class="hero">
+    <canvas class="hero-canvas" id="heroCanvas" aria-hidden="true"></canvas>
+    <div class="container hero-grid">
+      <div class="hero-text">
+        <h1>Find Duplicate Research Content with AI</h1>
+        <p class="subtitle"><span id="typedSubtitle"></span></p>
+        <div class="hero-actions">
+          <a href="analyze.html" class="btn btn-primary btn-lg">Start Free Analysis</a>
+          <a href="how-it-works.html" class="btn btn-outline btn-lg">How It Works</a>
+        </div>
+        <ul class="hero-points">
+          <li>Semantic + lexical similarity — catches paraphrasing too</li>
+          <li>100% local & private — no cloud, no paid APIs</li>
+          <li>Interactive report with risk levels and side-by-side text</li>
+        </ul>
+      </div>
+
+      <div class="hero-visual">
+        <div class="hero-card" aria-hidden="true">
+          <div class="doc-card doc-left">
+            <div class="doc-line"></div>
+            <div class="doc-line"></div>
+            <div class="doc-line short"></div>
+            <div class="doc-line"></div>
+            <span class="doc-label">Reference</span>
+          </div>
+          <div class="ai-orb">AI<small>compare</small></div>
+          <div class="doc-card doc-right">
+            <div class="doc-line"></div>
+            <div class="doc-line"></div>
+            <div class="doc-line short"></div>
+            <div class="doc-line"></div>
+            <span class="doc-label">Student</span>
+          </div>
+          <div class="match-percent">78%<span>similarity</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- animated stat counters -->
+    <div class="container stats-strip">
+      <div class="stat-box" data-reveal>
+        <div class="stat-value" data-count="100" data-suffix="%">0%</div>
+        <div class="stat-label">Local & Private</div>
+      </div>
+      <div class="stat-box" data-reveal data-reveal-delay="0.1s">
+        <div class="stat-value" data-count="2" data-suffix="">0</div>
+        <div class="stat-label">Similarity Methods</div>
+      </div>
+      <div class="stat-box" data-reveal data-reveal-delay="0.2s">
+        <div class="stat-value" data-count="0" data-suffix="₹">₹0</div>
+        <div class="stat-label">Cost — Free Forever</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" data-reveal>Everything You Need to Review Papers</h2>
+      <div class="features-grid">
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">🧠</div>
+          <h3>Semantic Similarity</h3>
+          <p>AI embeddings understand <em>meaning</em>, so paraphrased or reworded content is still detected.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">🔤</div>
+          <h3>Lexical Similarity</h3>
+          <p>Word-level matching catches direct copy-paste between the two papers.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">🚦</div>
+          <h3>Risk Levels</h3>
+          <p>Every match is labelled LOW, MEDIUM or HIGH so you can focus your review time.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">📄</div>
+          <h3>Page-Level Detail</h3>
+          <p>See exactly which page of each paper the similar text came from.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">🔒</div>
+          <h3>Fully Private</h3>
+          <p>Runs on your own computer. Papers never leave your machine.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon" aria-hidden="true">💾</div>
+          <h3>Saved History</h3>
+          <p>Every analysis is stored locally so you can revisit reports anytime.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCESS -->
+  <section class="section section-alt">
+    <div class="container">
+      <h2 class="section-title" data-reveal>From PDFs to Report in Seconds</h2>
+      <ol class="process-row">
+        <li class="process-step" data-reveal><span class="step-num">1</span><h3>Upload</h3><p>Drop in the reference and student PDFs.</p></li>
+        <li class="process-step" data-reveal data-reveal-delay="0.08s"><span class="step-num">2</span><h3>Extract</h3><p>Text is pulled from every page.</p></li>
+        <li class="process-step" data-reveal data-reveal-delay="0.16s"><span class="step-num">3</span><h3>Embed</h3><p>AI converts chunks into meaning vectors.</p></li>
+        <li class="process-step" data-reveal data-reveal-delay="0.24s"><span class="step-num">4</span><h3>Compare</h3><p>Semantic + lexical scores are computed.</p></li>
+        <li class="process-step" data-reveal data-reveal-delay="0.32s"><span class="step-num">5</span><h3>Report</h3><p>Interactive dashboard with risk levels.</p></li>
+      </ol>
+      <div class="center">
+        <a href="analyze.html" class="btn btn-primary btn-lg">Try It Now — It's Free</a>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="logo footer-logo"><span aria-hidden="true">🛡️</span> ResearchGuard <strong>AI</strong></div>
+        <p>AI-assisted research paper similarity analysis.</p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+      </nav>
+    </div>
+    <div class="container footer-bottom">
+      <p>Similarity analysis is an assistive tool and should not be treated as definitive proof of plagiarism.</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>

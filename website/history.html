@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Browse, search and revisit your saved similarity analysis reports.">
+  <title>History — ResearchGuard AI</title>
+  <script>
+    (function () {
+      var t = localStorage.getItem("rg_theme");
+      if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="index.html" class="logo" aria-label="ResearchGuard AI home">
+        <span class="logo-icon" aria-hidden="true">🛡️</span>
+        <span class="logo-text">ResearchGuard <strong>AI</strong></span>
+      </a>
+      <nav class="nav-links" id="navMenu" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="results.html">Results</a>
+        <a href="history.html" class="active">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+        <a href="analyze.html" class="btn btn-primary btn-sm">New Analysis</a>
+      </nav>
+      <div class="nav-controls">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark / light theme" title="Toggle theme">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun" aria-hidden="true">☀️</span>
+        </button>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="section">
+    <div class="container">
+      <h1 class="page-title" data-reveal>Analysis History</h1>
+      <p class="page-subtitle" data-reveal>All your past similarity reports, saved locally on this computer.</p>
+
+      <div id="historyLoading" class="loading-box">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Loading history…</p>
+      </div>
+
+      <div id="historyContent" hidden>
+        <!-- quick stats -->
+        <div class="history-stats" id="historyStats"></div>
+
+        <!-- search + sort toolbar -->
+        <div class="history-controls">
+          <div class="search-box">
+            <span class="search-icon" aria-hidden="true">🔍</span>
+            <input type="search" id="historySearch" class="search-input"
+                   placeholder="Search by paper name…" aria-label="Search history by paper name">
+          </div>
+          <select class="sort-select" id="historySort" aria-label="Sort history">
+            <option value="date-desc">Newest first</option>
+            <option value="date-asc">Oldest first</option>
+            <option value="overall-desc">Highest similarity</option>
+            <option value="overall-asc">Lowest similarity</option>
+          </select>
+        </div>
+
+        <div class="history-toolbar">
+          <span class="history-count" id="historyCount"></span>
+          <button class="btn btn-danger btn-sm" id="clearHistoryBtn">🗑 Clear All History</button>
+        </div>
+
+        <div class="history-list" id="historyList"></div>
+
+        <div id="historyEmpty" class="empty-box" hidden>
+          <p>No analyses yet.</p>
+          <a href="analyze.html" class="btn btn-primary">Run Your First Analysis</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="logo footer-logo"><span aria-hidden="true">🛡️</span> ResearchGuard <strong>AI</strong></div>
+        <p>AI-assisted research paper similarity analysis.</p>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="index.html">Home</a>
+        <a href="analyze.html">Analyze</a>
+        <a href="history.html">History</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="about.html">About</a>
+      </nav>
+    </div>
+    <div class="container footer-bottom">
+      <p>Similarity analysis is an assistive tool and should not be treated as definitive proof of plagiarism.</p>
+    </div>
+  </footer>
+
+  <script src="js/api.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/history.js"></script>
+</body>
+</html>
