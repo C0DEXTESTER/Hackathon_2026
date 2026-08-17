@@ -1,322 +1,549 @@
 """
 similarity.py
 =============
-This file contains all the "AI" logic of the prototype:
 
-  1. Load a free, open-source embedding model (all-MiniLM-L6-v2)
-  2. Turn text chunks into embeddings (numerical vectors)
-  3. Compare student chunks with reference chunks:
-       - semantic similarity  (cosine similarity of embeddings = MEANING)
-       - lexical similarity   (SequenceMatcher = exact WORDING)
-  4. Combine both scores into one number
-  5. Classify the risk level (LOW / MEDIUM / HIGH)
+AI logic for the Research Paper Similarity Detector.
 
----------------------------------------------------------------
-WHAT IS AN EMBEDDING? (simple explanation)
----------------------------------------------------------------
-An embedding is a list of numbers (a vector) that represents the
-MEANING of a piece of text:
+Features:
+    1. Load an open-source embedding model.
+    2. Generate semantic embeddings using FastEmbed.
+    3. Compare student-paper chunks with reference-paper chunks.
+    4. Calculate semantic similarity.
+    5. Calculate lexical similarity.
+    6. Combine both scores.
+    7. Classify similarity risk as LOW / MEDIUM / HIGH.
 
-    Text: "AI is used in healthcare"
-              |
-              v
-       Embedding Model
-              |
-              v
-    [0.12, -0.45, 0.88, ..., 0.03]   <- 384 numbers for this model
-
-Texts with similar meanings get vectors that point in similar
-directions, even if the words are different:
-
-    "AI is used in healthcare"      -> vector A
-    "AI technologies are applied
-     in the healthcare sector"      -> vector B  (close to A)
-
-    "The football team won the
-     championship yesterday"        -> vector C  (far from A)
----------------------------------------------------------------
+Deployment notes:
+    - Uses FastEmbed instead of SentenceTransformers/PyTorch.
+    - Uses ONNX Runtime for lightweight CPU inference.
+    - Uses small embedding batches to reduce memory usage.
+    - Avoids creating a huge complete similarity matrix.
 """
+
+import os
+
+# Keep ONNX Runtime resource usage conservative on small cloud instances.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OMP_WAIT_POLICY", "PASSIVE")
 
 import re
 import threading
+from difflib import SequenceMatcher
 
 import numpy as np
-from difflib import SequenceMatcher
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
+from fastembed import TextEmbedding
 
-# Cache so the model is loaded into memory only ONCE, no matter how many
-# times load_embedding_model() is called (CLI run, web server preload,
-# or several analyses in a row).
+
+# ---------------------------------------------------------------------------
+# MODEL CACHE
+# ---------------------------------------------------------------------------
+
+# The model is loaded only once per Python process.
 _loaded_model = None
 _model_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
-# CONFIGURATION - feel free to tune these numbers later
+# CONFIGURATION
 # ---------------------------------------------------------------------------
 
-# The free/open-source embedding model from Hugging Face.
-# all-MiniLM-L6-v2 is small (~80 MB), fast on CPU and works well for
-# semantic similarity. First run downloads it automatically.
-MODEL_NAME = "all-MiniLM-L6-v2"
+# FastEmbed's supported model identifier for the same MiniLM model
+# previously used with SentenceTransformers.
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-# --- Combined score weights ------------------------------------------------
-# How much each similarity type contributes to the final combined score.
-# These are only INITIAL HEURISTIC (educated-guess) weights.
-# They must eventually be calibrated with a proper labelled dataset.
+# Small batches help keep memory usage low on free cloud instances.
+EMBEDDING_BATCH_SIZE = 4
+
+# MiniLM produces 384-dimensional embeddings.
+EMBEDDING_DIMENSION = 384
+
+
+# ---------------------------------------------------------------------------
+# SIMILARITY WEIGHTS
+# ---------------------------------------------------------------------------
+
+# Semantic similarity detects similar meaning/paraphrasing.
 SEMANTIC_WEIGHT = 0.7
+
+# Lexical similarity detects similar/identical wording.
 LEXICAL_WEIGHT = 0.3
 
-# --- Risk thresholds (on the combined score, scale 0.0 - 1.0) --------------
-# Anything below HIGH_THRESHOLD is not considered suspicious on its own.
-# These are preliminary values - tune them after testing with real papers.
-LOW_THRESHOLD = 0.50    # below 0.50            -> LOW
-HIGH_THRESHOLD = 0.75   # 0.50 to 0.75 -> MEDIUM, above 0.75 -> HIGH
+
+# ---------------------------------------------------------------------------
+# RISK THRESHOLDS
+# ---------------------------------------------------------------------------
+
+LOW_THRESHOLD = 0.50
+HIGH_THRESHOLD = 0.75
 
 
 # ---------------------------------------------------------------------------
-# STEP 4: LOAD THE EMBEDDING MODEL
+# STEP 1: LOAD EMBEDDING MODEL
 # ---------------------------------------------------------------------------
 
 def load_embedding_model(model_name=MODEL_NAME):
     """
-    Load the sentence-transformers model (only once - then cached).
+    Load the FastEmbed model once and cache it.
 
-    The first time this runs, the model (~80 MB) is downloaded from
-    Hugging Face and cached on your computer. After that it loads
-    from the cache and works completely offline.
+    FastEmbed uses ONNX Runtime and is considerably lighter than loading
+    the full SentenceTransformers/PyTorch stack.
 
-    The lock makes this safe if two parts of the program (for example
-    the web server's preload and a user's analysis) try to load the
-    model at the same moment - the second one simply waits and reuses
-    the already loaded model.
+    Returns:
+        TextEmbedding:
+            Loaded FastEmbed embedding model.
     """
-    global _loaded_model
-    with _model_lock:
-        if _loaded_model is not None:
-            return _loaded_model  # already in memory - reuse it
 
-        print(f"  Loading embedding model '{model_name}' ...")
-        _loaded_model = SentenceTransformer(model_name)
-        print("  Model ready.")
+    global _loaded_model
+
+    with _model_lock:
+
+        if _loaded_model is not None:
+            return _loaded_model
+
+        print(f"Loading embedding model '{model_name}' ...")
+
+        _loaded_model = TextEmbedding(
+            model_name=model_name,
+            threads=1,
+        )
+
+        print("Embedding model ready.")
+
         return _loaded_model
 
 
 # ---------------------------------------------------------------------------
-# STEP 5: GENERATE EMBEDDINGS
+# STEP 2: NORMALIZE EMBEDDINGS
+# ---------------------------------------------------------------------------
+
+def _normalize_embeddings(embeddings):
+    """
+    Normalize embedding vectors to unit length.
+
+    Once vectors are normalized:
+
+        cosine_similarity(A, B) = dot(A, B)
+
+    This allows us to use NumPy dot products instead of sklearn.
+    """
+
+    embeddings = np.asarray(
+        embeddings,
+        dtype=np.float32,
+    )
+
+    if embeddings.size == 0:
+        return embeddings
+
+    if embeddings.ndim == 1:
+        embeddings = embeddings.reshape(1, -1)
+
+    norms = np.linalg.norm(
+        embeddings,
+        axis=1,
+        keepdims=True,
+    )
+
+    # Prevent division by zero.
+    norms = np.maximum(norms, 1e-12)
+
+    embeddings = embeddings / norms
+
+    return embeddings.astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# STEP 3: GENERATE EMBEDDINGS
 # ---------------------------------------------------------------------------
 
 def generate_embeddings(model, chunks):
     """
-    Convert a list of chunk dictionaries into embeddings.
+    Convert text chunks into normalized embedding vectors.
 
-    Input:  [{"chunk_id": 1, "text": "...", "page": 2}, ...]
-    Output: a NumPy array, one row (vector) per chunk.
+    Input:
+        [
+            {
+                "chunk_id": 1,
+                "text": "...",
+                "page": 2
+            },
+            ...
+        ]
 
-    model.encode() processes texts in batches internally, which is much
-    faster than embedding them one by one.
+    Output:
+        NumPy array with shape:
+
+            (number_of_chunks, 384)
+
+    Memory optimization:
+        FastEmbed returns embeddings through a generator.
+        A small batch size keeps inference memory under control.
     """
-    # Pull the raw text out of every chunk dictionary
-    texts = [chunk["text"] for chunk in chunks]
 
-    # Convert all texts to vectors at once.
-    # normalize_embeddings=True makes each vector length 1, which makes
-    # cosine similarity a simple dot product (slightly faster & cleaner).
-    embeddings = model.encode(
+    if not chunks:
+        return np.empty(
+            (0, EMBEDDING_DIMENSION),
+            dtype=np.float32,
+        )
+
+    texts = [
+        chunk["text"]
+        for chunk in chunks
+        if chunk.get("text")
+    ]
+
+    if not texts:
+        return np.empty(
+            (0, EMBEDDING_DIMENSION),
+            dtype=np.float32,
+        )
+
+    print(
+        f"Generating embeddings for {len(texts)} chunks "
+        f"(batch size={EMBEDDING_BATCH_SIZE})..."
+    )
+
+    embedding_generator = model.embed(
         texts,
-        show_progress_bar=False,
-        normalize_embeddings=True,
+        batch_size=EMBEDDING_BATCH_SIZE,
     )
 
-    return np.array(embeddings)
-
-
-# ---------------------------------------------------------------------------
-# STEP 6: SEMANTIC SIMILARITY (MEANING)
-# ---------------------------------------------------------------------------
-
-def calculate_semantic_similarity_matrix(reference_embeddings, student_embeddings):
-    """
-    Compare EVERY student chunk with EVERY reference chunk.
-
-    Returns a matrix (2D table) of cosine similarities:
-
-                 ref_1   ref_2   ref_3  ...
-        stu_1  [ 0.31    0.47    0.22  ]
-        stu_2  [ 0.55    0.89    0.12  ]
-        ...
-
-    cosine_similarity ranges from -1 to 1, but for this model the
-    interesting range is 0 (unrelated) to 1 (same meaning).
-
-    WHY COSINE SIMILARITY?
-    Because embeddings are directions in space: texts with the same
-    meaning point in the same direction. Cosine similarity measures the
-    angle between two vectors:
-        1.0  -> same direction  -> same meaning
-        0.0  -> perpendicular   -> unrelated
-    """
-    similarity_matrix = sklearn_cosine_similarity(
-        student_embeddings,      # rows    = student chunks
-        reference_embeddings,    # columns = reference chunks
+    embeddings = np.asarray(
+        list(embedding_generator),
+        dtype=np.float32,
     )
-    return similarity_matrix
+
+    embeddings = _normalize_embeddings(embeddings)
+
+    print(
+        f"Generated embedding matrix: {embeddings.shape}"
+    )
+
+    return embeddings
 
 
 # ---------------------------------------------------------------------------
-# STEP 7: LEXICAL SIMILARITY (EXACT WORDING)
+# STEP 4: SEMANTIC SIMILARITY MATRIX
+# ---------------------------------------------------------------------------
+
+def calculate_semantic_similarity_matrix(
+    reference_embeddings,
+    student_embeddings,
+):
+    """
+    Calculate semantic similarity between all student and reference
+    embeddings.
+
+    Because the vectors are normalized:
+
+        cosine similarity = dot product
+
+    Returns:
+
+        Matrix with shape:
+
+            (student_chunks, reference_chunks)
+
+    NOTE:
+        This function is kept for compatibility with the original
+        project. The main matching function below avoids constructing
+        the entire matrix when possible.
+    """
+
+    reference_embeddings = _normalize_embeddings(
+        reference_embeddings
+    )
+
+    student_embeddings = _normalize_embeddings(
+        student_embeddings
+    )
+
+    if (
+        len(reference_embeddings) == 0
+        or len(student_embeddings) == 0
+    ):
+        return np.empty(
+            (len(student_embeddings), len(reference_embeddings)),
+            dtype=np.float32,
+        )
+
+    similarity_matrix = np.matmul(
+        student_embeddings,
+        reference_embeddings.T,
+    )
+
+    # Numerical safety.
+    similarity_matrix = np.clip(
+        similarity_matrix,
+        -1.0,
+        1.0,
+    )
+
+    return similarity_matrix.astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# STEP 5: LEXICAL NORMALIZATION
 # ---------------------------------------------------------------------------
 
 def _normalize_for_lexical(text):
     """
-    Simple normalization so SequenceMatcher compares words, not formatting.
+    Normalize text before lexical comparison.
 
     Example:
-      "Machine-Learning algorithms are  WIDELY used."
-      -> "machine learning algorithms are widely used"
+
+        Machine-Learning algorithms are WIDELY used.
+
+    becomes:
+
+        machine learning algorithms are widely used
     """
-    text = text.lower()                # lowercase
-    text = re.sub(r"[^a-z0-9\s]", " ", text)  # keep only letters/digits/spaces
-    text = re.sub(r"\s+", " ", text)   # collapse spaces
+
+    if not text:
+        return ""
+
+    text = text.lower()
+
+    text = re.sub(
+        r"[^a-z0-9\s]",
+        " ",
+        text,
+    )
+
+    text = re.sub(
+        r"\s+",
+        " ",
+        text,
+    )
+
     return text.strip()
 
 
+# ---------------------------------------------------------------------------
+# STEP 6: LEXICAL SIMILARITY
+# ---------------------------------------------------------------------------
+
 def calculate_lexical_similarity(text_1, text_2):
     """
-    Measure how similar two texts are WORD FOR WORD.
+    Calculate wording similarity using SequenceMatcher.
 
-    Uses Python's built-in difflib.SequenceMatcher (the same engine
-    behind file diff tools). It finds the longest matching blocks.
-
-    Returns a score between 0.0 and 1.0:
-      1.0 -> texts are (almost) identical
-      0.0 -> nothing in common
-
-    This catches DIRECT COPYING even when the semantic model is fooled
-    by short or generic sentences.
+    Returns:
+        Float from 0.0 to 1.0.
     """
+
     normalized_1 = _normalize_for_lexical(text_1)
     normalized_2 = _normalize_for_lexical(text_2)
 
     if not normalized_1 or not normalized_2:
         return 0.0
 
-    matcher = SequenceMatcher(None, normalized_1, normalized_2)
-    return matcher.ratio()
+    matcher = SequenceMatcher(
+        None,
+        normalized_1,
+        normalized_2,
+    )
+
+    return float(
+        matcher.ratio()
+    )
 
 
 # ---------------------------------------------------------------------------
-# STEP 8: COMBINED SCORE
+# STEP 7: COMBINED SCORE
 # ---------------------------------------------------------------------------
 
-def calculate_combined_score(semantic_similarity, lexical_similarity):
+def calculate_combined_score(
+    semantic_similarity,
+    lexical_similarity,
+):
     """
-    Blend the two scores into one number.
+    Combine semantic and lexical similarity.
 
-        combined = 0.7 * semantic + 0.3 * lexical
-
-    Semantic gets more weight because it also detects paraphrases
-    (same meaning, different words). Lexical adds evidence for
-    direct copy-paste.
-
-    NOTE: the weights are initial heuristic values, not scientifically
-    calibrated. A labelled dataset is needed to tune them properly.
+        combined =
+            0.7 * semantic
+            +
+            0.3 * lexical
     """
+
     combined_score = (
         SEMANTIC_WEIGHT * semantic_similarity
-        + LEXICAL_WEIGHT * lexical_similarity
+        +
+        LEXICAL_WEIGHT * lexical_similarity
     )
-    return combined_score
+
+    return float(
+        np.clip(
+            combined_score,
+            0.0,
+            1.0,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
-# RISK CLASSIFICATION
+# STEP 8: RISK CLASSIFICATION
 # ---------------------------------------------------------------------------
 
 def classify_risk(combined_score):
     """
-    Turn a combined score into a human-readable risk label.
+    Classify similarity risk.
 
-        < 0.50        -> "LOW"
-        0.50 - 0.75   -> "MEDIUM"
-        > 0.75        -> "HIGH"
+        < 0.50        -> LOW
+        0.50 - 0.75   -> MEDIUM
+        >= 0.75       -> HIGH
 
-    IMPORTANT: "HIGH" means HIGH SIMILARITY, NOT confirmed plagiarism.
-    A human must always review the flagged passages.
+    IMPORTANT:
+        HIGH means high similarity.
+        It does NOT automatically prove plagiarism.
     """
+
     if combined_score >= HIGH_THRESHOLD:
         return "HIGH"
-    elif combined_score >= LOW_THRESHOLD:
+
+    if combined_score >= LOW_THRESHOLD:
         return "MEDIUM"
-    else:
-        return "LOW"
+
+    return "LOW"
 
 
 # ---------------------------------------------------------------------------
-# FIND THE BEST MATCH FOR EVERY STUDENT CHUNK
+# STEP 9: FIND BEST MATCHES
 # ---------------------------------------------------------------------------
 
-def find_best_matches(reference_chunks, student_chunks,
-                      reference_embeddings, student_embeddings):
+def find_best_matches(
+    reference_chunks,
+    student_chunks,
+    reference_embeddings,
+    student_embeddings,
+):
     """
-    For every student chunk:
-      1. Compare it against ALL reference chunks (semantic similarity).
-      2. Keep the single best (highest) semantic match.
-      3. Compute lexical similarity for that best pair.
-      4. Compute the combined score and classify the risk.
+    Find the best reference match for every student chunk.
 
-    Returns a list of result dictionaries:
+    Memory optimization:
+        Instead of creating one huge:
 
-        {
-            "student_chunk_id": 5,
-            "reference_chunk_id": 3,
-            "semantic_similarity": 0.89,
-            "lexical_similarity": 0.72,
-            "combined_similarity": 0.84,
-            "risk": "HIGH",
-            "student_text": "...",
-            "reference_text": "...",
-            "student_page": 4,
-            "reference_page": 5,
-        }
+            student_chunks x reference_chunks
+
+        similarity matrix, this function processes one student
+        embedding at a time.
+
+    This is safer for cloud deployment with limited RAM.
     """
-    # Table of semantic scores: rows = student chunks, cols = reference chunks
-    similarity_matrix = calculate_semantic_similarity_matrix(
-        reference_embeddings, student_embeddings
+
+    if (
+        not reference_chunks
+        or not student_chunks
+        or len(reference_embeddings) == 0
+        or len(student_embeddings) == 0
+    ):
+        return []
+
+    reference_embeddings = _normalize_embeddings(
+        reference_embeddings
+    )
+
+    student_embeddings = _normalize_embeddings(
+        student_embeddings
     )
 
     results = []
 
-    for row_index, student_chunk in enumerate(student_chunks):
-        # All similarity scores of THIS student chunk vs every reference chunk
-        scores_against_references = similarity_matrix[row_index]
+    # Make sure we never access more embeddings than chunks.
+    student_count = min(
+        len(student_chunks),
+        len(student_embeddings),
+    )
 
-        # Index of the best (highest scoring) reference chunk
-        best_reference_index = int(np.argmax(scores_against_references))
-        best_semantic = float(scores_against_references[best_reference_index])
+    reference_count = min(
+        len(reference_chunks),
+        len(reference_embeddings),
+    )
 
-        best_reference_chunk = reference_chunks[best_reference_index]
+    reference_embeddings = reference_embeddings[
+        :reference_count
+    ]
 
-        # Lexical similarity for the same best pair
-        best_lexical = calculate_lexical_similarity(
-            student_chunk["text"], best_reference_chunk["text"]
+    reference_chunks = reference_chunks[
+        :reference_count
+    ]
+
+    for row_index in range(student_count):
+
+        student_chunk = student_chunks[row_index]
+
+        student_vector = student_embeddings[
+            row_index
+        ]
+
+        # Because both vectors are normalized:
+        #
+        # cosine similarity = dot product
+        scores = np.dot(
+            reference_embeddings,
+            student_vector,
         )
 
-        combined = calculate_combined_score(best_semantic, best_lexical)
+        # Numerical safety.
+        scores = np.clip(
+            scores,
+            -1.0,
+            1.0,
+        )
+
+        best_reference_index = int(
+            np.argmax(scores)
+        )
+
+        best_semantic = float(
+            scores[best_reference_index]
+        )
+
+        best_reference_chunk = reference_chunks[
+            best_reference_index
+        ]
+
+        # Lexical similarity is calculated only for the
+        # best semantic match instead of every possible pair.
+        best_lexical = calculate_lexical_similarity(
+            student_chunk.get("text", ""),
+            best_reference_chunk.get("text", ""),
+        )
+
+        combined = calculate_combined_score(
+            best_semantic,
+            best_lexical,
+        )
 
         results.append(
             {
                 "student_chunk_id": student_chunk["chunk_id"],
-                "reference_chunk_id": best_reference_chunk["chunk_id"],
-                "semantic_similarity": round(best_semantic, 4),
-                "lexical_similarity": round(best_lexical, 4),
-                "combined_similarity": round(combined, 4),
-                "risk": classify_risk(combined),
-                "student_text": student_chunk["text"],
-                "reference_text": best_reference_chunk["text"],
-                "student_page": student_chunk["page"],
-                "reference_page": best_reference_chunk["page"],
+
+                "reference_chunk_id":
+                    best_reference_chunk["chunk_id"],
+
+                "semantic_similarity":
+                    round(best_semantic, 4),
+
+                "lexical_similarity":
+                    round(best_lexical, 4),
+
+                "combined_similarity":
+                    round(combined, 4),
+
+                "risk":
+                    classify_risk(combined),
+
+                "student_text":
+                    student_chunk.get("text", ""),
+
+                "reference_text":
+                    best_reference_chunk.get("text", ""),
+
+                "student_page":
+                    student_chunk.get("page"),
+
+                "reference_page":
+                    best_reference_chunk.get("page"),
             }
         )
 
@@ -324,23 +551,35 @@ def find_best_matches(reference_chunks, student_chunks,
 
 
 # ---------------------------------------------------------------------------
-# OVERALL SIMILARITY
+# STEP 10: OVERALL SIMILARITY
 # ---------------------------------------------------------------------------
 
 def calculate_overall_similarity(match_results):
     """
-    One simple number that summarizes the whole comparison:
+    Calculate the average best-match similarity.
 
-        average of the best-match combined similarity scores
-        across all student chunks
+    IMPORTANT:
+        This is an experimental similarity score.
 
-    This is an EXPERIMENTAL similarity score for the prototype.
-    It is NOT a "plagiarism percentage" - similarity alone never
-    proves plagiarism.
+        It is NOT a confirmed plagiarism percentage.
     """
+
     if not match_results:
         return 0.0
 
-    total = sum(match["combined_similarity"] for match in match_results)
-    average = total / len(match_results)
-    return round(average, 4)
+    total = sum(
+        match.get(
+            "combined_similarity",
+            0.0,
+        )
+        for match in match_results
+    )
+
+    average = total / len(
+        match_results
+    )
+
+    return round(
+        float(average),
+        4,
+    )
