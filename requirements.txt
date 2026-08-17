@@ -1,19 +1,16 @@
 # ============================================================
 # Requirements for the AI Research Paper Similarity Detector
-# Install everything with:  pip install -r requirements.txt
 # ============================================================
 
 # --- PDF text extraction -------------------------------------
 pymupdf
 
-# --- AI / embeddings & similarity ----------------------------
-sentence-transformers
-scikit-learn
+# --- Lightweight AI embeddings -------------------------------
+fastembed
+
+# --- Vector / similarity calculations ------------------------
 numpy
 
-# --- Web interface (Flask backend) ---------------------------
+# --- Web interface -------------------------------------------
 flask
 gunicorn
-
-# NOTE: The first run downloads the all-MiniLM-L6-v2 model
-# (~90 MB) from Hugging Face. After that everything works offline.
