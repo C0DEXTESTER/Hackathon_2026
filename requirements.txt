@@ -1,5 +1,5 @@
 # ============================================================
-# Requirements for the AI Research Paper Similarity Detector
+# Requirements for ResearchGuard AI
 # ============================================================
 
 # --- PDF text extraction -------------------------------------
@@ -10,6 +10,7 @@ fastembed
 
 # --- Vector / similarity calculations ------------------------
 numpy
+scikit-learn
 
 # --- Web interface -------------------------------------------
 flask
