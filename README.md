@@ -1,224 +1,168 @@
-# AI Research Paper Similarity Prototype
+ResearchGuard AI
 
-A small command-line Python prototype that compares a **student research paper** against a **reference academic paper** and flags duplicate or semantically similar content — using only free, open-source tools that run completely locally.
+A small web app for comparing a student paper against a reference paper and flagging text that looks copied or paraphrased. It combines AI embeddings with plain lexical comparison so it catches both direct copy-paste and reworded content.
 
-This is **Stage 1** of a hackathon project: first prove the core AI similarity detection works, then (later) build a website on top of it.
+Note: a high score is a flag for a human to look at, not proof of plagiarism. This is a screening tool, not a verdict.
 
----
+What it does
+Takes two PDFs — a reference paper and a student paper
+Pulls text out with PyMuPDF and breaks it into chunks
+Embeds the chunks with FastEmbed
+Scores each student chunk against the closest reference chunk, two ways:
+semantic similarity (meaning)
+lexical similarity (actual wording)
+Blends the two into one score and buckets it into LOW / MEDIUM / HIGH
+Shows you the matching passages side by side, with page numbers, so you can actually check the match instead of trusting a number
+Why semantic + lexical
 
-## What this project does
+Straight text matching misses paraphrasing. If a student writes:
 
-You give it two PDFs:
+"AI technologies are increasingly used for medical diagnosis."
 
-```text
-papers/reference.pdf   (the original/source paper)
-papers/student.pdf     (the submission to check)
-```
+and the reference says:
 
-The program:
+"Artificial intelligence is increasingly being used to diagnose diseases."
 
-1. Extracts text from both PDFs (page by page)
-2. Splits the text into paragraph-sized **chunks**
-3. Converts every chunk into an **embedding** (a numerical representation of its meaning)
-4. Compares every student chunk against every reference chunk using:
-   - **semantic similarity** (meaning — catches paraphrasing)
-   - **lexical similarity** (exact wording — catches copy-paste)
-5. Combines both into one score, classifies risk (LOW / MEDIUM / HIGH)
-6. Prints the top matches with page numbers and text previews
-7. Saves the full analysis to `results/analysis.json`
+a word-for-word diff won't catch that these are basically the same sentence. Embeddings do, because they compare meaning rather than exact characters.
 
-> ⚠️ **Important:** A HIGH similarity flag means "high similarity — review recommended". It is **not** proof of plagiarism. A human must always make the final judgment.
+The embedding model is sentence-transformers/all-MiniLM-L6-v2, run through FastEmbed on ONNX Runtime — open source, no external API key needed, runs locally.
 
----
+Lexical similarity is simpler: lowercase, strip punctuation, normalize whitespace, then run Python's SequenceMatcher over it. This is what catches near-identical or copy-pasted sentences that semantic similarity alone might rate lower than it should.
 
-## How it works
+How the score is calculated
+combined_similarity = 0.7 * semantic_similarity + 0.3 * lexical_similarity
 
-```text
-PDF
- ↓
-Text (PyMuPDF)
- ↓
-Chunks (paragraphs, ~150 words)
- ↓
-Embeddings (all-MiniLM-L6-v2)
- ↓
-Cosine Similarity (semantic)
- ↓
-SequenceMatcher (lexical)
- ↓
-Combined Score (0.7 × semantic + 0.3 × lexical)
- ↓
-Flag similar content (LOW / MEDIUM / HIGH)
-```
+Semantic gets the higher weight since paraphrase detection is the main point here — a purely lexical check would miss it.
 
----
+Risk buckets:
 
-## What is an embedding?
+Score	Risk
+< 0.50	LOW
+0.50 – 0.75	MEDIUM
+>= 0.75	HIGH
 
-An embedding is a **list of numbers that describes the meaning of a piece of text**.
+These thresholds are preliminary — they haven't been calibrated against a real academic dataset yet, so treat HIGH as "worth a closer look," not "guilty."
 
-```text
-"AI is used in healthcare"  →  [0.12, -0.45, 0.88, ..., 0.03]
-```
+Pipeline
+Reference PDF ──┐
+                ├──> extract text ──> chunk ──> embed ──┐
+Student PDF ────┘                                       │
+                                                          ▼
+                                       semantic similarity + lexical similarity
+                                                          │
+                                                          ▼
+                                              combined score → risk label
+                                                          │
+                                                          ▼
+                                                  analysis report
+Running it
 
-Think of it as coordinates on a map of meanings. Texts with similar meanings end up close together on that map, even if they use different words:
+Requires Python 3.10+.
 
-- "Machine learning helps doctors" → point A
-- "ML assists physicians" → point B (very close to A)
-- "The football team won" → point C (far away from A)
-
-We use the free model `all-MiniLM-L6-v2` (only ~80 MB, runs fine on CPU) from the `sentence-transformers` library.
-
----
-
-## What is cosine similarity?
-
-Cosine similarity measures the **angle** between two embedding vectors:
-
-- **1.0** — vectors point the same way → texts mean the same thing
-- **0.0** — vectors are perpendicular → meanings are unrelated
-
-It ignores how long the vectors are and only looks at direction, which is exactly what we want when comparing meaning. We compute it with `sklearn.metrics.pairwise.cosine_similarity`.
-
----
-
-## What is semantic similarity?
-
-Semantic similarity = how close the **meanings** of two texts are, regardless of wording.
-
-Example:
-
-```text
-Student:   "AI technologies are increasingly used for medical diagnosis."
-Reference: "Artificial intelligence is increasingly being used to diagnose diseases."
-```
-
-These share few words, but mean almost the same thing → **high semantic similarity**. Copy-paste checkers that only compare strings would miss this; embeddings catch it.
-
----
-
-## Installation
-
-Make sure you have Python 3.10+ installed, then run:
-
-```bash
+bash
 pip install -r requirements.txt
-```
-
-This installs:
-
-- `pymupdf` — PDF text extraction
-- `sentence-transformers` — embedding model (also installs PyTorch)
-- `scikit-learn` — cosine similarity
-
-> The **first run** downloads the `all-MiniLM-L6-v2` model (~80 MB) from Hugging Face and caches it locally. After that everything works **offline**.
-
----
-
-## How to run
-
-Put your two PDFs here (exact names):
-
-```text
-papers/reference.pdf
-papers/student.pdf
-```
-
-Then run:
-
-```bash
-python main.py
-```
-
-**Easiest way (Windows):** just **double-click `run.bat`** inside the project folder — it runs the program and keeps the window open so you can read the results.
-
-**From VS Code:** right-click `main.py` → *Run Python File in Terminal* (make sure the terminal is inside the `research_similarity_prototype` folder).
-
-Optional quick self-test (no PDFs needed) — compares three small text pairs (exact duplicate / paraphrase / unrelated):
-
-```bash
-python main.py --test
-```
-
----
-
-## Optional: local web interface
-
-The **same engine** also powers a small local website (Flask backend + plain HTML/CSS/JS frontend — no frameworks):
-
-```bash
 python app.py
-```
 
-Then open <http://127.0.0.1:5000> (or double-click `start_website.bat` on Windows).
+Windows users can just double-click start_website.bat. Either way, it comes up at http://127.0.0.1:5000.
 
-- Upload the two PDFs in the browser (drag & drop supported)
-- Watch the **real** analysis progress (the same steps as the command line)
-- View the similarity report on the Results dashboard (donut chart, breakdown bars, match cards with page numbers, detail modal with shared-word highlighting)
-- Past analyses are listed on the History page (stored in `results/history/`)
+You'll see something like:
 
-The website adds **no new AI logic** — `app.py` simply calls the same `analyze_papers()` pipeline used by `python main.py`.
+=======================================================
+ ResearchGuard AI - Web Backend
+=======================================================
+ Website: http://127.0.0.1:5000
+ Health:  http://127.0.0.1:5000/api/health
+=======================================================
 
----
+There's also a CLI path if you don't want the web UI:
 
-## Output
+bash
+python main.py
 
-The terminal shows:
+Same pipeline underneath (PDF processing → chunking → FastEmbed → semantic/lexical scoring → risk classification), just no browser involved.
 
-- Overall similarity (experimental, average of best-match combined scores)
-- Counts of HIGH / MEDIUM / LOW similarity chunks
-- Top 10 most similar chunk pairs with:
-  - semantic / lexical / combined percentages
-  - student page number & reference page number
-  - the actual matched text (so you can see **why** it was flagged)
+Uploading papers
 
-A machine-readable copy of everything is saved to:
+The web app takes two PDFs — reference and student. Max request size is 30MB. Once uploaded, the backend validates the files, generates a job ID, and kicks off analysis in a background thread so the server doesn't lock up while the model loads and runs. Only one analysis runs at a time, mostly to keep memory use sane.
 
-```text
-results/analysis.json
-```
+You can poll GET /api/progress while it's running to get the current stage — extracting text, chunking, loading the model, generating embeddings, scoring, and so on — if you want to show a progress bar or just watch it work.
 
-This JSON will later be consumed by the web version of the tool.
+API
+Method	Endpoint	What it does
+GET	/api/health	Reports starting until the model has loaded, then ok
+POST	/api/analyze	Takes reference_pdf + student_pdf, returns a job_id
+GET	/api/progress	Current status of the running job
+GET	/api/results	Most recent completed analysis
+GET	/api/results/<job_id>	A specific analysis by job ID
+GET	/api/history	List of past analyses
+DELETE	/api/history/<job_id>	Removes one analysis + its uploaded PDFs
+DELETE	/api/history	Wipes all stored history and uploads
 
----
+Example /api/analyze response:
 
-## Project structure
+json
+{
+  "job_id": "20260818_123456_a1b2c3",
+  "status": "started"
+}
 
-```text
+Example chunk-level match from a report:
+
+json
+{
+  "student_chunk_id": 12,
+  "reference_chunk_id": 8,
+  "semantic_similarity": 0.8421,
+  "lexical_similarity": 0.7315,
+  "combined_similarity": 0.8089,
+  "risk": "HIGH",
+  "student_page": 4,
+  "reference_page": 3
+}
+
+Completed analyses get saved under results/history/, each with its own job ID, similarity breakdown, timestamps, and the matched chunks with page numbers.
+
+Frontend
+
+Plain HTML/CSS/JS, no framework or build step. Handles the usual stuff — responsive nav, dark/light theme (persisted in localStorage), toast notifications, scroll animations, a typing effect on the hero, shared-word highlighting on matches, and JSON export of results.
+
+Project layout
 research_similarity_prototype/
-├── main.py              # entry point + pipeline + report + JSON saving
-├── app.py               # optional Flask backend + local website server
-├── pdf_processor.py     # PDF extraction, text cleaning, chunking
-├── similarity.py        # embeddings + semantic/lexical/combined scoring
+├── app.py              # Flask backend + API routes
+├── main.py              # CLI analysis pipeline
+├── similarity.py         # embeddings + similarity math
+├── pdf_processor.py       # PDF extraction and chunking
 ├── requirements.txt
-├── README.md
-├── start_website.bat    # double-click to launch the website (Windows)
-├── run.bat              # double-click to run the CLI version (Windows)
-├── papers/              # put reference.pdf and student.pdf here
-├── results/             # analysis.json + history/ (web analyses)
-├── website/             # HTML/CSS/JS frontend (no build tools)
-└── tests/               # (optional) extra test material
-```
+├── start_website.bat
+├── run.bat
+├── papers/               # test/reference PDFs
+├── uploads/               # uploaded PDFs
+├── results/
+│   ├── analysis.json
+│   └── history/
+├── website/               # HTML/CSS/JS
+└── tests/
+Stack
 
----
+Python, Flask, PyMuPDF for PDF extraction, FastEmbed (all-MiniLM-L6-v2 on ONNX Runtime) for embeddings, NumPy for the math, SequenceMatcher for lexical comparison, Gunicorn for production, and a no-framework HTML/CSS/JS frontend.
 
-## Limitations
+Known limitations
+One student paper vs. one reference paper at a time — no batch mode yet
+Scanned/image PDFs aren't supported, no OCR
+Thresholds are provisional, not validated against a large academic corpus
+Generic or boilerplate academic phrasing can trigger false positives
+Short sentences sometimes get inflated semantic scores
+The embedding model is general-purpose, not trained specifically on academic writing
+Doesn't check citations or references at all
+Similarity ≠ plagiarism — full stop
+Single analysis job at a time
+This is a prototype, not a production-grade system
+Where this could go
 
-- Similarity is **not proof of plagiarism** — always human-review flagged passages
-- Scanned / image-based PDFs are **not supported** (no OCR yet)
-- Thresholds (0.50 / 0.75) and weights (0.7 / 0.3) are **preliminary guesses**, not calibrated on a dataset
-- Common academic phrases ("in this paper we propose...") may cause **false positives**
-- Only **one reference paper** can be compared at a time
-- Short/generic sentences can score oddly high with embedding models
+Batch comparison against multiple references, an academic-tuned embedding model, section-by-section comparison, citation checking, OCR for scanned documents, better visualizations, downloadable PDF/HTML reports, proper threshold calibration against real data, multi-user support with auth, and general performance/memory work.
 
----
+The point of it
 
-## Future Improvements
+Plain text-matching tools break down the moment someone paraphrases instead of copying. This combines semantic understanding with lexical comparison to catch both, and gives you a risk label plus the actual matched text so you can make the call yourself — it's a first pass, not a verdict.
 
-- Improve the local web interface (multi-user, accounts, better charts)
-- Section-wise analysis (compare only Methodology vs Methodology)
-- Dataset-based evaluation and threshold calibration
-- OCR support for scanned PDFs
-- Academic-domain-specific embedding models (e.g. SPECTER)
-- Batch comparison against multiple reference papers
-- Downloadable PDF/HTML reports
+Disclaimer: ResearchGuard AI is a screening tool. Its output is meant to guide further human review, not serve as proof of academic misconduct. The final call always belongs to a qualified reviewer.
