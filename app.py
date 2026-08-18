@@ -1,29 +1,13 @@
 """
 app.py
 ======
-
 ResearchGuard AI - Flask web backend.
 
-This file is the web/API layer around the existing analysis engine:
+Local:
+    python app.py
 
-    pdf_processor.py
-        -> extracts and chunks PDF text
-
-    similarity.py
-        -> generates embeddings and calculates similarity
-
-    main.py
-        -> runs the complete analysis pipeline
-
-    website/
-        -> frontend HTML/CSS/JavaScript
-
-Deployment:
-    Local:
-        python app.py
-
-    Production:
-        gunicorn app:app --workers 1
+Render:
+    gunicorn app:app --workers 1
 """
 
 import json
@@ -40,66 +24,43 @@ import similarity
 
 
 # ============================================================================
-# BASIC CONFIGURATION
+# CONFIGURATION
 # ============================================================================
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-WEBSITE_FOLDER = os.path.join(
-    BASE_DIR,
-    "website"
-)
+WEBSITE_FOLDER = os.path.join(BASE_DIR, "website")
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+HISTORY_FOLDER = os.path.join(BASE_DIR, "results", "history")
 
-UPLOAD_FOLDER = os.path.join(
-    BASE_DIR,
-    "uploads"
-)
-
-HISTORY_FOLDER = os.path.join(
-    BASE_DIR,
-    "results",
-    "history"
-)
-
-# Maximum size for a single HTTP request.
 MAX_FILE_SIZE_MB = 30
 
 
 # ============================================================================
-# FLASK APPLICATION
+# FLASK
 # ============================================================================
 
-app = Flask(
-    __name__,
-    static_folder=None
-)
+app = Flask(__name__, static_folder=None)
 
-# Enforce the 30 MB upload/request limit.
 app.config["MAX_CONTENT_LENGTH"] = (
     MAX_FILE_SIZE_MB * 1024 * 1024
 )
 
 
 # ============================================================================
-# MODEL READY STATE
+# MODEL STATE
 # ============================================================================
 
-# This event becomes set after FastEmbed has successfully loaded.
-#
-# IMPORTANT:
-# We do NOT preload the model during Gunicorn startup.
-# The model is loaded only when a real analysis is requested.
+# True only after FastEmbed has successfully loaded.
 MODEL_READY = threading.Event()
+
+# Prevent two requests from trying to load the model simultaneously.
+MODEL_LOCK = threading.Lock()
 
 
 # ============================================================================
 # ANALYSIS STATE
 # ============================================================================
-
-# Only one analysis is allowed at a time.
-#
-# This keeps the application simple and prevents multiple large
-# embedding operations from consuming memory simultaneously.
 
 analysis_state = {
     "job_id": None,
@@ -152,54 +113,43 @@ STEP_LABELS = {
 # ============================================================================
 
 def set_state(**kwargs):
-    """
-    Safely update shared analysis state.
-
-    A lock is used because the analysis runs in a background thread
-    while Flask requests may read the same state simultaneously.
-    """
+    """Thread-safe update of analysis state."""
 
     with _state_lock:
         analysis_state.update(kwargs)
 
 
 # ============================================================================
-# AI MODEL LOADING
+# AI MODEL
 # ============================================================================
 
 def ensure_model_ready():
     """
-    Load the AI embedding model only when required.
+    Load the FastEmbed model when the first analysis starts.
 
-    This is intentionally lazy.
-
-    Why?
-
-    Render's free instance has limited RAM. Loading the model during
-    Gunicorn startup would consume memory even when nobody is using
-    the detector.
-
-    The model is therefore loaded when the first analysis begins.
+    The model is NOT loaded during Render/Gunicorn startup.
     """
 
     if MODEL_READY.is_set():
         return
 
-    print(
-        "[backend] Loading AI embedding model..."
-    )
+    with MODEL_LOCK:
 
-    similarity.load_embedding_model()
+        # Another thread may have loaded it while we waited.
+        if MODEL_READY.is_set():
+            return
 
-    MODEL_READY.set()
+        print("[backend] Loading AI embedding model...")
 
-    print(
-        "[backend] AI embedding model ready."
-    )
+        similarity.load_embedding_model()
+
+        MODEL_READY.set()
+
+        print("[backend] AI embedding model ready.")
 
 
 # ============================================================================
-# BACKGROUND ANALYSIS JOB
+# BACKGROUND ANALYSIS
 # ============================================================================
 
 def run_analysis_job(
@@ -208,11 +158,6 @@ def run_analysis_job(
     job_id,
     display_names,
 ):
-    """
-    Run the paper comparison in a background thread.
-
-    This keeps Flask responsive while the AI analysis is running.
-    """
 
     set_state(
         job_id=job_id,
@@ -228,14 +173,7 @@ def run_analysis_job(
         finished_at=None,
     )
 
-    # ------------------------------------------------------------------------
-    # Progress callback
-    # ------------------------------------------------------------------------
-
     def on_progress(step_name, percent):
-        """
-        Receive progress updates from main.py.
-        """
 
         label = STEP_LABELS.get(
             step_name,
@@ -251,14 +189,23 @@ def run_analysis_job(
             percent=int(percent),
         )
 
-    # ------------------------------------------------------------------------
-    # Run analysis
-    # ------------------------------------------------------------------------
-
     try:
 
-        # Load the model only when an actual analysis is requested.
+        # ------------------------------------------------------------
+        # Load AI model
+        # ------------------------------------------------------------
+
+        set_state(
+            step="run_model",
+            step_label="Loading AI embedding model",
+            percent=5,
+        )
+
         ensure_model_ready()
+
+        # ------------------------------------------------------------
+        # Run existing AI pipeline
+        # ------------------------------------------------------------
 
         results = engine.analyze_papers(
             reference_pdf_path=reference_path,
@@ -266,19 +213,16 @@ def run_analysis_job(
             progress_callback=on_progress,
         )
 
-        # --------------------------------------------------------------------
-        # Validate result
-        # --------------------------------------------------------------------
-
         if results is None:
+
             raise RuntimeError(
                 "Not enough extractable text in the uploaded PDFs. "
                 "Scanned/image-based PDFs are not supported yet."
             )
 
-        # --------------------------------------------------------------------
-        # Attach web application metadata
-        # --------------------------------------------------------------------
+        # ------------------------------------------------------------
+        # Add website metadata
+        # ------------------------------------------------------------
 
         results["reference_paper_name"] = (
             display_names["reference"]
@@ -296,9 +240,9 @@ def run_analysis_job(
 
         results["job_id"] = job_id
 
-        # --------------------------------------------------------------------
-        # Save result to history
-        # --------------------------------------------------------------------
+        # ------------------------------------------------------------
+        # Save history
+        # ------------------------------------------------------------
 
         os.makedirs(
             HISTORY_FOLDER,
@@ -323,9 +267,9 @@ def run_analysis_job(
                 ensure_ascii=False,
             )
 
-        # --------------------------------------------------------------------
-        # Mark analysis as complete
-        # --------------------------------------------------------------------
+        # ------------------------------------------------------------
+        # Finished
+        # ------------------------------------------------------------
 
         set_state(
             status="done",
@@ -341,10 +285,6 @@ def run_analysis_job(
         print(
             f"[backend] Analysis {job_id} completed."
         )
-
-    # ------------------------------------------------------------------------
-    # Error handling
-    # ------------------------------------------------------------------------
 
     except Exception as error:
 
@@ -362,14 +302,11 @@ def run_analysis_job(
 
 
 # ============================================================================
-# STATIC WEBSITE
+# WEBSITE
 # ============================================================================
 
 @app.route("/")
 def serve_index():
-    """
-    Serve the main website page.
-    """
 
     return send_from_directory(
         WEBSITE_FOLDER,
@@ -379,14 +316,6 @@ def serve_index():
 
 @app.route("/<path:file_name>")
 def serve_website_file(file_name):
-    """
-    Serve frontend files such as:
-
-        CSS
-        JavaScript
-        HTML
-        images
-    """
 
     return send_from_directory(
         WEBSITE_FOLDER,
@@ -395,35 +324,30 @@ def serve_website_file(file_name):
 
 
 # ============================================================================
-# HEALTH API
+# HEALTH CHECK
 # ============================================================================
 
 @app.route("/api/health")
 def api_health():
     """
-    Health endpoint used by the frontend.
-
     IMPORTANT:
-    This endpoint does NOT load the AI model.
 
-    That keeps health checks fast and memory-efficient.
+    Backend is considered healthy even when the AI model
+    has not been loaded yet.
+
+    The frontend can use model_ready to know whether the
+    model is loaded.
     """
 
-    if MODEL_READY.is_set():
-
-        return jsonify({
-            "status": "ok",
-            "service": "ResearchGuard AI",
-        })
-
     return jsonify({
-        "status": "starting",
+        "status": "ok",
         "service": "ResearchGuard AI",
+        "model_ready": MODEL_READY.is_set(),
     })
 
 
 # ============================================================================
-# ANALYZE API
+# ANALYZE
 # ============================================================================
 
 @app.route(
@@ -431,23 +355,15 @@ def api_health():
     methods=["POST"]
 )
 def api_analyze():
-    """
-    Receive two PDF files:
 
-        reference_pdf
-        student_pdf
-
-    Then start the analysis in a background thread.
-    """
-
-    # ------------------------------------------------------------------------
-    # Check whether another analysis is already running
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Check current analysis
+    # ------------------------------------------------------------
 
     with _state_lock:
 
-        current_status = (
-            analysis_state.get("status")
+        current_status = analysis_state.get(
+            "status"
         )
 
     if current_status == "running":
@@ -458,9 +374,9 @@ def api_analyze():
                 "Please wait for it to finish."
         }), 409
 
-    # ------------------------------------------------------------------------
-    # Validate required files
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Check uploaded files
+    # ------------------------------------------------------------
 
     if (
         "reference_pdf" not in request.files
@@ -482,14 +398,14 @@ def api_analyze():
         "student_pdf"
     ]
 
-    # ------------------------------------------------------------------------
-    # Validate filenames
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Check filenames
+    # ------------------------------------------------------------
 
     if (
-        reference_file.filename == ""
+        not reference_file.filename
         or
-        student_file.filename == ""
+        not student_file.filename
     ):
 
         return jsonify({
@@ -498,9 +414,9 @@ def api_analyze():
                 "and a student PDF."
         }), 400
 
-    # ------------------------------------------------------------------------
-    # Validate PDF extensions
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Check PDF extensions
+    # ------------------------------------------------------------
 
     for uploaded_file in (
         reference_file,
@@ -520,18 +436,18 @@ def api_analyze():
                     "Please upload valid PDF files."
             }), 400
 
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
     # Create upload directory
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
 
     os.makedirs(
         UPLOAD_FOLDER,
         exist_ok=True
     )
 
-    # ------------------------------------------------------------------------
-    # Generate unique job ID
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Generate job ID
+    # ------------------------------------------------------------
 
     job_id = (
         datetime.now().strftime(
@@ -541,9 +457,9 @@ def api_analyze():
         + uuid.uuid4().hex[:6]
     )
 
-    # ------------------------------------------------------------------------
-    # Create safe internal filenames
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Internal filenames
+    # ------------------------------------------------------------
 
     reference_path = os.path.join(
         UPLOAD_FOLDER,
@@ -555,9 +471,9 @@ def api_analyze():
         f"{job_id}_student.pdf"
     )
 
-    # ------------------------------------------------------------------------
-    # Save uploaded files
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Save PDFs
+    # ------------------------------------------------------------
 
     try:
 
@@ -576,11 +492,12 @@ def api_analyze():
                 f"Could not save uploaded files: {error}"
         }), 500
 
-    # ------------------------------------------------------------------------
-    # Keep original display names
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Display names
+    # ------------------------------------------------------------
 
     display_names = {
+
         "reference":
             os.path.basename(
                 reference_file.filename
@@ -592,9 +509,9 @@ def api_analyze():
             ),
     }
 
-    # ------------------------------------------------------------------------
-    # Start background analysis
-    # ------------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Start background job
+    # ------------------------------------------------------------
 
     thread = threading.Thread(
         target=run_analysis_job,
@@ -616,14 +533,11 @@ def api_analyze():
 
 
 # ============================================================================
-# PROGRESS API
+# PROGRESS
 # ============================================================================
 
 @app.route("/api/progress")
 def api_progress():
-    """
-    Return current analysis progress.
-    """
 
     with _state_lock:
 
@@ -631,7 +545,7 @@ def api_progress():
             analysis_state
         )
 
-    # Do not send the full result while processing.
+    # Don't send huge result while processing.
     if payload.get("status") != "done":
 
         payload.pop(
@@ -645,14 +559,11 @@ def api_progress():
 
 
 # ============================================================================
-# RESULTS API
+# RESULTS
 # ============================================================================
 
 @app.route("/api/results")
 def api_results():
-    """
-    Return the latest completed analysis.
-    """
 
     with _state_lock:
 
@@ -660,10 +571,7 @@ def api_results():
             analysis_state
         )
 
-    # ------------------------------------------------------------------------
-    # Return current in-memory result
-    # ------------------------------------------------------------------------
-
+    # Current result
     if (
         payload.get("status") == "done"
         and
@@ -674,10 +582,7 @@ def api_results():
             payload["result"]
         )
 
-    # ------------------------------------------------------------------------
-    # Fallback to saved history
-    # ------------------------------------------------------------------------
-
+    # Saved history fallback
     latest = _latest_history_file()
 
     if latest:
@@ -700,16 +605,13 @@ def api_results():
 
 
 # ============================================================================
-# SPECIFIC RESULT API
+# SPECIFIC RESULT
 # ============================================================================
 
 @app.route(
     "/api/results/<job_id>"
 )
 def api_results_for_job(job_id):
-    """
-    Return one analysis by job ID.
-    """
 
     safe_id = re.sub(
         r"[^A-Za-z0-9_-]",
@@ -746,14 +648,11 @@ def api_results_for_job(job_id):
 
 
 # ============================================================================
-# HISTORY API
+# HISTORY
 # ============================================================================
 
 @app.route("/api/history")
 def api_history():
-    """
-    Return a summary of stored analyses.
-    """
 
     items = []
 
@@ -788,6 +687,7 @@ def api_history():
                 continue
 
             items.append({
+
                 "job_id":
                     data.get(
                         "job_id",
@@ -857,9 +757,6 @@ def api_history():
     methods=["DELETE"]
 )
 def api_delete_history_item(job_id):
-    """
-    Delete one stored analysis and its uploaded PDFs.
-    """
 
     safe_id = re.sub(
         r"[^A-Za-z0-9_-]",
@@ -881,12 +778,10 @@ def api_delete_history_item(job_id):
 
     try:
 
-        # Delete history JSON.
         os.remove(
             path
         )
 
-        # Delete PDFs associated with the job.
         if os.path.isdir(
             UPLOAD_FOLDER
         ):
@@ -899,15 +794,15 @@ def api_delete_history_item(job_id):
                     safe_id + "_"
                 ):
 
-                    upload_path = os.path.join(
-                        UPLOAD_FOLDER,
-                        upload
-                    )
-
                     try:
+
                         os.remove(
-                            upload_path
+                            os.path.join(
+                                UPLOAD_FOLDER,
+                                upload
+                            )
                         )
+
                     except OSError:
                         pass
 
@@ -932,16 +827,10 @@ def api_delete_history_item(job_id):
     methods=["DELETE"]
 )
 def api_clear_history():
-    """
-    Delete all stored analyses and uploaded PDFs.
-    """
 
     deleted = 0
 
-    # ------------------------------------------------------------------------
-    # Delete JSON history
-    # ------------------------------------------------------------------------
-
+    # Delete history
     if os.path.isdir(
         HISTORY_FOLDER
     ):
@@ -955,27 +844,21 @@ def api_clear_history():
             ):
                 continue
 
-            path = os.path.join(
-                HISTORY_FOLDER,
-                file_name
-            )
-
             try:
 
                 os.remove(
-                    path
+                    os.path.join(
+                        HISTORY_FOLDER,
+                        file_name
+                    )
                 )
 
                 deleted += 1
 
             except OSError:
-
                 pass
 
-    # ------------------------------------------------------------------------
     # Delete uploaded PDFs
-    # ------------------------------------------------------------------------
-
     if os.path.isdir(
         UPLOAD_FOLDER
     ):
@@ -989,19 +872,16 @@ def api_clear_history():
             ):
                 continue
 
-            path = os.path.join(
-                UPLOAD_FOLDER,
-                file_name
-            )
-
             try:
 
                 os.remove(
-                    path
+                    os.path.join(
+                        UPLOAD_FOLDER,
+                        file_name
+                    )
                 )
 
             except OSError:
-
                 pass
 
     return jsonify({
@@ -1010,13 +890,10 @@ def api_clear_history():
 
 
 # ============================================================================
-# JSON HELPER
+# HELPERS
 # ============================================================================
 
 def _read_json(path):
-    """
-    Safely read a JSON file.
-    """
 
     try:
 
@@ -1039,14 +916,7 @@ def _read_json(path):
         return None
 
 
-# ============================================================================
-# FIND LATEST HISTORY FILE
-# ============================================================================
-
 def _latest_history_file():
-    """
-    Find the newest stored analysis.
-    """
 
     if not os.path.isdir(
         HISTORY_FOLDER
@@ -1077,12 +947,11 @@ def _latest_history_file():
 
 
 # ============================================================================
-# LOCAL DEVELOPMENT SERVER
+# LOCAL SERVER
 # ============================================================================
 
 if __name__ == "__main__":
 
-    # Make sure required runtime directories exist.
     os.makedirs(
         UPLOAD_FOLDER,
         exist_ok=True
@@ -1105,11 +974,8 @@ if __name__ == "__main__":
     print("=" * 55)
 
     # IMPORTANT:
-    #
-    # Do NOT preload the AI model here.
-    #
-    # It will be loaded by ensure_model_ready() when the first
-    # analysis starts. This saves memory during startup.
+    # Model is NOT loaded here.
+    # It loads when the user starts an analysis.
 
     app.run(
         host="0.0.0.0",
