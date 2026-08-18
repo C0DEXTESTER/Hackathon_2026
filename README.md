@@ -1,4 +1,4 @@
-ResearchGuard AI
+<h1>ResearchGuard AI</h1>
 
 A small web app for comparing a student paper against a reference paper and flagging text that looks copied or paraphrased. It combines AI embeddings with plain lexical comparison so it catches both direct copy-paste and reworded content.
 
